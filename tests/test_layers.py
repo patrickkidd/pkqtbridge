@@ -31,11 +31,11 @@ def test_layerOrderChanged(qApp):
     document.addItem(Layer(name='Layer 4'))
     layerOrderChanged = util.Condition(document.layerOrderChanged)
 
-    document.resortLayersFromOrder() # noop
+    document._resortLayersFromOrder() # noop
     assert layerOrderChanged.callCount == 0
 
     document.query1(name='Layer 2').setOrder(10) # way above
-    document.resortLayersFromOrder()
+    document._resortLayersFromOrder()
     assert layerOrderChanged.callCount == 1
 
 

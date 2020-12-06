@@ -92,7 +92,7 @@ class LayerModel(QAbstractListModel, ModelHelper):
         name = util.newNameOf(self._layers, tmpl=tmpl, key=lambda x: x.name())
         newLayer.setName(name)
         commands.addLayer(self._document, newLayer)
-        self._document.tidyLayerOrder()
+        self._document._tidyLayerOrder()
         
     @pyqtSlot(int)
     def removeRow(self, row):

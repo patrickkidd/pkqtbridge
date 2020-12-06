@@ -33,6 +33,10 @@ class Document(Item):
         self._layers = []
         self._activeLayers = []
 
+    def nextId(self):
+        self.setLastItemId(self.lastItemId() + 1)
+        return self.lastItemId()
+
     def addItem(self, item, register=True):
         if (isinstance(item, QGraphicsItem) or isinstance(item, QGraphicsObject)) and not item.document() is self:
             super().addItem(item)
@@ -53,7 +57,7 @@ class Document(Item):
             self._layers.append(item)
             item.setDocument(self)
             if not self.isBatchAddingRemovingItems():
-                self.tidyLayerOrder()
+                self._tidyLayerOrder()
             self.layerAdded.emit(item)
             if not self.isBatchAddingRemovingItems():
                 if item.active():
@@ -84,7 +88,7 @@ class Document(Item):
             assert self._batchAddRemoveStackLevel >= 0
             if self._batchAddRemoveStackLevel == 0:
                 if len([x for x in (self._batchAddedItems + self._batchRemovedItems) if isinstance(x, Layer)]) > 0:
-                    self.tidyLayerOrder()
+                    self._tidyLayerOrder()
                 self.updateAll()
                 self._batchAddedItems = []
                 self._batchRemovedItems = []
@@ -104,13 +108,69 @@ class Document(Item):
         ## Signals
         if item.isLayer:
             self._layers.remove(item)
-            self.tidyLayerOrder()
+            self._tidyLayerOrder()
             self.layerRemoved.emit(item)
         if self.isBatchAddingRemovingItems() and not item in self._batchRemovedItems:
             self._batchRemovedItems.append(item)
         self.itemRemoved.emit(item)
 
-    def resortLayersFromOrder(self):
+    ## Query interface
+            
+    def query(self, **kwargs):
+        """ Query based on property value. """
+        ret = []
+        for id, item in self.itemRegistry.items():
+            for k, v in kwargs.items():
+                prop = item.prop(k)
+                if prop and item.prop(k).get() == v:
+                    ret.append(item)
+        return ret
+        
+    def query1(self, **kwargs):
+        ret = self.query(**kwargs)
+        if ret:
+            return ret[0]
+        
+    def find(self, id=None, tags=None, types=None, sort=None):
+        """ Match is AND. """
+        if id is not None: # exclusive; most common use case
+            ret = self.itemRegistry.get(id, None)
+        else:
+            if types is not None:
+                if isinstance(types, list):
+                    types = tuple(types)
+                elif not isinstance(types, tuple):
+                    types = (types,)
+            if tags is not None:
+                if not isinstance(tags, list):
+                    tags = [tags]
+            _reverseTags = self.reverseTags() # cache
+            ret = []
+            for id, item in self.itemRegistry.items():
+                if types is not None and not isinstance(item, types):
+                    continue
+                if tags is not None and not item.hasTags(tags, _reverseTags):
+                    continue
+                ret.append(item)
+        if sort:
+            return Property.sortBy(ret, sort)
+        else:
+            return ret
+
+    def findById(self, id):
+        if id is not None:
+            return self.find(id=id)
+
+    def itemsWithTags(self, tags=[], kind=Item):
+        ret = []
+        for id, item in self.itemRegistry.items():
+            if isinstance(item, kind) and item.hasTags(tags):
+                ret.append(item)
+        return sorted(ret)
+
+    ## Layers
+
+    def _resortLayersFromOrder(self):
         # re-sort iternal layer list.
         was = list(self._layers)
         def layerOrder(layer):
@@ -122,7 +182,7 @@ class Document(Item):
         if self._layers != was:
             self.layerOrderChanged.emit()
 
-    def tidyLayerOrder(self):
+    def _tidyLayerOrder(self):
         """ Set Layer.order based on order of self._layers. """
         was = list(self._layers)
         for i, layer in enumerate(self.layers()):

@@ -340,12 +340,12 @@ class SetLayerOrder(UndoCommand):
     def redo(self):
         for i, layer in enumerate(self.newLayers):
             layer.setOrder(i)
-        self.document.resortLayersFromOrder()
+        self.document._resortLayersFromOrder()
         
     def undo(self):
         for i, layer in enumerate(self.oldLayers): # re-init order
             layer.setOrder(i)
-        self.document.resortLayersFromOrder()
+        self.document._resortLayersFromOrder()
 
 def setLayerOrder(document, layers):
     stack().push(SetLayerOrder(document, layers))
